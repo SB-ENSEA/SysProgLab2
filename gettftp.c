@@ -21,6 +21,16 @@ void Display(char * text){
 	write(STDOUT_FILENO,text,strlen(text));
 	}
 
+char* RRQmsg(char* filename){
+	char* res=malloc((strlen(filename)+strlen("octet")+4)*sizeof(char));
+	res[0]=0;
+	res[1]=1;
+	strcpy(&res[2],filename);
+	res[2+strlen(filename)] = 0;
+	strcpy(&res[3+strlen(filename)],"octet");
+	res[3+strlen("octet")+strlen(filename)] = 0;
+	return res;
+	}
 
 int main(int argc, char **argv){
 	int systest;
@@ -31,6 +41,8 @@ int main(int argc, char **argv){
 	
 	char* hostadress = malloc(TXTSIZE);
 	char* servadress = malloc(TXTSIZE);
+	
+	char* msg = malloc (MSGSIZE);
 	
 	memset(&hints,0,sizeof(struct addrinfo));
 	
@@ -53,10 +65,10 @@ int main(int argc, char **argv){
 			break;
 			}
 		}
-	int sockdesc = socket(PF_INET,SOCK_DGRAM,0);
+	int sockdesc = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
 	if(sockdesc==-1){Display("Socket failure \n");exit(EXIT_FAILURE);}
 	
-	if(connect(sockdesc,res->ai_addr,res->ai_addrlen)==-1){Display("Connection failure\n");}
-	else{Display("Connection Established !\n");}
-	
+	msg = RRQmsg(file);
+	Display(msg);
+	sendto(sockdesc,msg,sizeof(msg),0,res,res->ai_addrlen);
 }
