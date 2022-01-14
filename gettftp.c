@@ -25,7 +25,7 @@ char* RRQmsg(char* filename){
 	int lenfile = strlen(filename);
 	int lenoct = strlen("octet");
 	
-	char* res=malloc(lenfile+strlen("octet")+4);
+	char* res=malloc(lenfile+lenoct+4);
 	
 	//the two first bytes are "01"
 	res[0]=0;
@@ -43,14 +43,43 @@ char* RRQmsg(char* filename){
 	return res;
 	}
 
-void ReceiveData(int desc_sock, char* file){
-	int desc_file;
+void ReceiveDatagram(int desc_sock, char* file){
+	char * buf = malloc(PACKETSIZE);
+	char * ack = malloc(4);
 	
-	desc_file = open(file, O_RDWR);
+	struct sockaddr *rec = malloc(sizeof(struct sockaddr));
+	socklen_t *reclen = malloc(sizeof (socklen_t));
+	*reclen = sizeof(struct sockaddr);
+	
+	ssize_t readCount = 0;
+	readCount = recvfrom(desc_sock,buf,PACKETSIZE,0,rec,reclen);
+	
+	
+	if(readCount==-1){perror("Reading error");exit(EXIT_FAILURE);}
+
+	
+	int desc_file = open(file, O_RDWR);
 	if(desc_file==-1){
 		desc_file = open(file,O_RDWR | O_CREAT ,S_IRWXU | S_IRWXG | S_IRWXO); //if the requested file does not exist, we create it
 	}
-	dup2(desc_file,desc_sock);
+	
+	//creation of the acknowledge message
+	ack[0]=0;
+	ack[1]=4;
+	ack[2]=buf[2];
+	ack[3]=buf[3]; 
+	
+	if(sendto(desc_sock,ack,4,0,rec,*reclen)==-1){perror("Sending error");exit(EXIT_FAILURE);};
+	
+	
+	if(readCount==4){Display("Fin de connection");exit(EXIT_SUCCESS);}
+	
+	if(ack[3]!=1 && ack[2]!=0){	//if the block is not the first of the transmission , we write at the end of the file
+		lseek(desc_file,0,SEEK_END);
+	}
+	if(write(desc_file,&buf[4],readCount-4)<=0){Display("Writing error\n");exit(EXIT_FAILURE);}
+	
+	free(ack);free(buf);free(rec);free(reclen);
 	}
 
 int main(int argc, char **argv){
@@ -93,4 +122,7 @@ int main(int argc, char **argv){
 	sendto(desc_sock,msg,msgSize,0,res->ai_addr,res->ai_addrlen);
 	free(msg);
 	
+	while(1){
+		ReceiveDatagram(desc_sock,file);
+	}
 }
