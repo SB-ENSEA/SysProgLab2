@@ -22,14 +22,35 @@ void Display(char * text){
 	}
 
 char* RRQmsg(char* filename){
-	char* res=malloc((strlen(filename)+strlen("octet")+4)*sizeof(char));
+	int lenfile = strlen(filename);
+	int lenoct = strlen("octet");
+	
+	char* res=malloc(lenfile+strlen("octet")+4);
+	
+	//the two first bytes are "01"
 	res[0]=0;
 	res[1]=1;
+	
+	//The next byte are for the target file name
 	strcpy(&res[2],filename);
-	res[2+strlen(filename)] = 0;
-	strcpy(&res[3+strlen(filename)],"octet");
-	res[3+strlen("octet")+strlen(filename)] = 0;
+	
+	//The last bytes of the RRQ msg are for 0 "octet" 0
+	res[2 + lenfile]=0;
+	
+	strcpy(&res[2 + 1 + lenfile],"octet");
+	
+	res[2 + 1 + lenfile + lenoct]=0;
 	return res;
+	}
+
+void ReceiveData(int desc_sock, char* file){
+	int desc_file;
+	
+	desc_file = open(file, O_RDWR);
+	if(desc_file==-1){
+		desc_file = open(file,O_RDWR | O_CREAT ,S_IRWXU | S_IRWXG | S_IRWXO); //if the requested file does not exist, we create it
+	}
+	dup2(desc_file,desc_sock);
 	}
 
 int main(int argc, char **argv){
@@ -40,11 +61,10 @@ int main(int argc, char **argv){
 	char* service = malloc(TXTSIZE);
 	
 	char* hostadress = malloc(TXTSIZE);
-	char* servadress = malloc(TXTSIZE);
-	
-	char* msg = malloc (MSGSIZE);
+	char* serviceadress = malloc(TXTSIZE);
 	
 	memset(&hints,0,sizeof(struct addrinfo));
+	hints.ai_protocol = IPPROTO_UDP;
 	
 	service = NULL;
 	
@@ -52,23 +72,25 @@ int main(int argc, char **argv){
 	if(argc==3){host = argv[1];	file = argv[2];}
 	if(argc==4){host = argv[1];	service = argv[2];file = argv[3];}
 	
+	int msgSize = 4 + strlen(file) + strlen("octet");
+	char* msg = malloc(msgSize);
 	
 	systest = getaddrinfo(host,service,&hints,&res);
 	if(systest!=0){Display((char*)gai_strerror(systest));exit(EXIT_FAILURE);}
 	
 	for (rp = res; rp != NULL; rp = rp->ai_next) {
-		if(getnameinfo(rp->ai_addr,rp->ai_addrlen,hostadress,TXTSIZE,servadress,TXTSIZE,NI_NUMERICHOST | NI_NUMERICSERV)==0){
+		if(getnameinfo(rp->ai_addr,rp->ai_addrlen,hostadress,TXTSIZE,serviceadress,TXTSIZE,NI_NUMERICHOST | NI_NUMERICSERV)==0){
 			Display(hostadress);
 			Display("\n");
-			Display(servadress);
+			Display(serviceadress);
 			Display("\n");
-			break;
 			}
 		}
-	int sockdesc = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
-	if(sockdesc==-1){Display("Socket failure \n");exit(EXIT_FAILURE);}
+	int desc_sock = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
+	if(desc_sock==-1){Display("Socket failure \n");exit(EXIT_FAILURE);}
 	
 	msg = RRQmsg(file);
-	Display(msg);
-	sendto(sockdesc,msg,sizeof(msg),0,res,res->ai_addrlen);
+	sendto(desc_sock,msg,msgSize,0,res->ai_addr,res->ai_addrlen);
+	free(msg);
+	
 }
