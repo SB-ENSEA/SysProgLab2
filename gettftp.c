@@ -64,15 +64,13 @@ void ReceiveDatagram(int desc_sock, char* file){
 	}
 	
 	//creation of the acknowledge message
-	ack[0]=0;
-	ack[1]=4;
-	ack[2]=buf[2];
-	ack[3]=buf[3]; 
+	ack[0]=0;ack[1]=4;
+	ack[2]=buf[2];ack[3]=buf[3]; 
 	
 	if(sendto(desc_sock,ack,4,0,rec,*reclen)==-1){perror("Sending error");exit(EXIT_FAILURE);};
 	
 	
-	if(readCount==4){Display("Fin de connection");exit(EXIT_SUCCESS);}
+	if(readCount==4){Display("End of Transmission !\n");exit(EXIT_SUCCESS);}
 	
 	if(ack[3]!=1 && ack[2]!=0){	//if the block is not the first of the transmission , we write at the end of the file
 		lseek(desc_file,0,SEEK_END);
