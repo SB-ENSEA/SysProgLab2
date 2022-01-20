@@ -1,2 +1,2 @@
-# SysProgLab2
-System Programming project 1 : creation of a small TFTP client 
+# System Programming project 2
+creation of a small TFTP client 
