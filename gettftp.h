@@ -5,3 +5,4 @@
 void Display(char*);
 char* RRQmsg(char*);
 void ReceiveDatagram(int,char*);
+void ErrHandler(char*);
