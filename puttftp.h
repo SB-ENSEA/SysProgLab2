@@ -9,3 +9,4 @@ void Display(char*);
 char* WRQmsg(char*);
 int receiveAck(int,int);
 void TransmitDatagram(int, char*, int);
+void ErrHandler(char*);
