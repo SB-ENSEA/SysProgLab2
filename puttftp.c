@@ -51,7 +51,7 @@ void ErrHandler(char* ErrPacket){
 			exit(EXIT_FAILURE);
 		}
 	else{
-			char* disp = malloc (MSGSIZE);
+			char* disp = malloc (TXTSIZE);
 			sprintf(disp,"Error code : %d \n",ErrPacket[3]);
 			Display(disp);
 			exit(EXIT_FAILURE);
