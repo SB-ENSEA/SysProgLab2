@@ -43,6 +43,21 @@ char* RRQmsg(char* filename){
 	return res;
 	}
 
+void ErrHandler(char* ErrPacket){
+	
+	if(ErrPacket[2] == 0 && ErrPacket[3] == 0){
+			Display(&ErrPacket[4]);
+			Display("\n");
+			exit(EXIT_FAILURE);
+		}
+	else{
+			char* disp = malloc (MSGSIZE);
+			sprintf(disp,"Error code : %d \n",ErrPacket[3]);
+			Display(disp);
+			exit(EXIT_FAILURE);
+		}
+	}
+
 void ReceiveDatagram(int desc_sock, char* file){
 	char * buf = malloc(PACKETSIZE);
 	char * ack = malloc(4);
@@ -54,23 +69,25 @@ void ReceiveDatagram(int desc_sock, char* file){
 	ssize_t readCount = 0;
 	readCount = recvfrom(desc_sock,buf,PACKETSIZE,0,rec,reclen);
 	
-	
 	if(readCount==-1){perror("Reading error");exit(EXIT_FAILURE);}
-
 	
 	int desc_file = open(file, O_RDWR);
 	if(desc_file==-1){
 		desc_file = open(file,O_RDWR | O_CREAT ,S_IRWXU | S_IRWXG | S_IRWXO); //if the requested file does not exist, we create it
 	}
 	
-	//creation of the acknowledge message
+	//Handling of error messages
+	
+	if(buf[1]==5){ErrHandler(buf);}
+	
+	//creation and sending of the acknowledge message
 	ack[0]=0;ack[1]=4;
 	ack[2]=buf[2];ack[3]=buf[3]; 
 	
-	if(sendto(desc_sock,ack,4,0,rec,*reclen)==-1){perror("Sending error");exit(EXIT_FAILURE);};
+	if(sendto(desc_sock,ack,4,0,rec,*reclen)==-1){perror("Sending error\n");exit(EXIT_FAILURE);};
 	
 	
-	if(readCount==4){Display("End of Transmission !\n");exit(EXIT_SUCCESS);}
+	if(readCount==4){Display("End of Transmission !\n");exit(EXIT_SUCCESS);} //if a data packet is empty, it signifies (successful) end of Transsmission
 	
 	if(ack[3]!=1 && ack[2]!=0){	//if the block is not the first of the transmission , we write at the end of the file
 		lseek(desc_file,0,SEEK_END);
@@ -95,7 +112,7 @@ int main(int argc, char **argv){
 	
 	service = NULL;
 	
-	if(argc<3){Display("Not enough arguments \n");exit(EXIT_FAILURE);}
+	if(argc<3){Display("Usage : host service file\n");exit(EXIT_FAILURE);}
 	if(argc==3){host = argv[1];	file = argv[2];}
 	if(argc==4){host = argv[1];	service = argv[2];file = argv[3];}
 	
