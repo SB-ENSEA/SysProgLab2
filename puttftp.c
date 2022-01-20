@@ -43,6 +43,21 @@ char* WRQmsg(char* filename){
 	return res;
 	}
 
+void ErrHandler(char* ErrPacket){
+	
+	if(ErrPacket[2] == 0 && ErrPacket[3] == 0){
+			Display(&ErrPacket[4]);
+			Display("\n");
+			exit(EXIT_FAILURE);
+		}
+	else{
+			char* disp = malloc (MSGSIZE);
+			sprintf(disp,"Error code : %d \n",ErrPacket[3]);
+			Display(disp);
+			exit(EXIT_FAILURE);
+		}
+	}
+
 int receiveAck(int desc_sock,int BlockNb){
 	
 	struct sockaddr *rec = malloc(sizeof(struct sockaddr));
@@ -55,7 +70,11 @@ int receiveAck(int desc_sock,int BlockNb){
 	readCount = recvfrom(desc_sock,ack,4,0,rec,reclen);
 	if(readCount==-1){perror("Reading error");exit(EXIT_FAILURE);}
 	
-	if(ack[1] == 4 && BlockNb/10 == ack[2] && BlockNb%10 == ack[3]){//ack[1]=4 => acknowledge packet,ack[2] and ack[3] check if the block number is the right one 
+	if (ack[1]==5){ErrHandler(ack);} //In case of an error packet, we terminate connection
+	
+	if (ack[1]!=4){return TRANSMISSION_FAILURE;} //if the packet is not an acknoledgment or an error, we send our datagam again
+
+	if(BlockNb/10 == ack[2] && BlockNb%10 == ack[3]){//ack[1]=4 => acknowledge packet,ack[2] and ack[3] check if the block number is the right one 
 		return TRANSMISSION_SUCCESS;
 		}
 	return TRANSMISSION_FAILURE;
@@ -105,7 +124,7 @@ int main(int argc, char **argv){
 	char* hostadress = malloc(TXTSIZE);
 	char* serviceadress = malloc(TXTSIZE);
 	
-	int BlockNb = 1;
+	int BlockNb = 0;
 	
 	memset(&hints,0,sizeof(struct addrinfo));
 	hints.ai_protocol = IPPROTO_UDP;
@@ -131,11 +150,10 @@ int main(int argc, char **argv){
 		}
 	int desc_sock = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
 	if(desc_sock==-1){Display("Socket failure \n");exit(EXIT_FAILURE);}
-	
-	sendto(desc_sock,WRQmsg(file),msgSize,0,res->ai_addr,res->ai_addrlen);
-	
+
 	while(1){
-		TransmitDatagram(desc_sock,file,BlockNb);
+		if(BlockNb == 0){sendto(desc_sock,WRQmsg(file),msgSize,0,res->ai_addr,res->ai_addrlen);}// we consider datagram 0 to be the write RQ message
+		else{TransmitDatagram(desc_sock,file,BlockNb);}
 		if(receiveAck(desc_sock,BlockNb) == TRANSMISSION_SUCCESS){BlockNb++;} //if we receive the right acknowledgement packet, we can transmit the next datagram; else we send again the same datagram
-		}
+	}
 }
